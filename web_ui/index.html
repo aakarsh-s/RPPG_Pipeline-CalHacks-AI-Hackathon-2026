@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EdgeTriage — Contactless Vital Timeline</title>
+    <meta
+      name="description"
+      content="A research-use dashboard for contactless rPPG vital-sign monitoring and clinical conversation timelines."
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="masthead">
+        <a class="site-title" href="#">EdgeTriage</a>
+        <p class="subtitle">Contactless vital timeline · research prototype</p>
+        <p class="status-pill">
+          <span class="pulse-dot"></span>
+          Local demo running
+        </p>
+
+        <nav class="topbar" aria-label="Primary">
+          <a href="#dashboard">dashboard</a>
+          <a href="#quality">signal quality</a>
+          <a href="#safety">safety framing</a>
+          <button id="scanFaceButton" class="text-button" type="button">scan face</button>
+        </nav>
+      </header>
+
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Contactless rPPG research platform</p>
+          <h1>Display only measurements produced by the live rPPG pipeline.</h1>
+          <p>
+            EdgeTriage estimates heart rate from webcam color changes in facial
+            ROIs. Values are shown only when the backend produces them; otherwise
+            the platform reports that the measurement is unavailable.
+          </p>
+          <p class="link-row">
+            <button class="inline-link" type="button" onclick="document.querySelector('#scanFaceButton')?.click()">scan face</button>
+            <span>/</span>
+            <a href="#safety">safety framing</a>
+          </p>
+        </div>
+
+        <aside class="hero-card" aria-label="Current vital snapshot">
+          <div class="card-header">
+            <span>Current estimate</span>
+            <strong id="currentValidity" class="valid muted-status">Not scanned</strong>
+          </div>
+          <div class="bpm-readout">
+            <span id="currentBpm">--</span>
+            <small>BPM</small>
+          </div>
+          <div class="metric-grid">
+            <div>
+              <span>SQI</span>
+              <strong id="currentSqi">--</strong>
+            </div>
+            <div>
+              <span>FPS</span>
+              <strong id="currentFps">--</strong>
+            </div>
+            <div>
+              <span>ROI agreement</span>
+              <strong id="currentRoiAgreement">--</strong>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section id="dashboard" class="dashboard">
+        <article class="panel video-panel">
+          <div class="panel-title">
+            <div>
+              <p class="eyebrow">Camera view</p>
+              <h2>ROI quality map</h2>
+            </div>
+            <span class="badge">MacBook Camera</span>
+          </div>
+
+          <div class="face-frame data-empty" role="img" aria-label="Live rPPG camera frame state">
+            <p id="cameraPanelStatus">
+              Press “Scan face” to stream the actual annotated camera feed in the popup.
+            </p>
+          </div>
+
+          <div class="roi-list">
+            <div><span><i class="swatch yellow"></i> Forehead</span> <strong id="roiForehead">--</strong></div>
+            <div><span><i class="swatch cyan"></i> Left cheek</span> <strong id="roiLeft">--</strong></div>
+            <div><span><i class="swatch magenta"></i> Right cheek</span> <strong id="roiRight">--</strong></div>
+          </div>
+        </article>
+
+        <article class="panel chart-panel">
+          <div class="panel-title">
+            <div>
+              <p class="eyebrow">Last 60 seconds</p>
+              <h2>Heart-rate trend</h2>
+            </div>
+            <span id="trendBadge" class="badge">No validated points</span>
+          </div>
+
+          <div class="chart" aria-label="Heart rate trend chart">
+            <svg viewBox="0 0 720 260" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="lineGlow" x1="0" x2="1">
+                  <stop offset="0%" stop-color="#111111" />
+                  <stop offset="100%" stop-color="#777777" />
+                </linearGradient>
+              </defs>
+              <path class="grid-line" d="M0 52 H720 M0 104 H720 M0 156 H720 M0 208 H720" />
+              <path id="trendPath" class="trend-line" d="" />
+              <path id="baselinePath" class="baseline" d="" />
+            </svg>
+          </div>
+
+          <div id="timeline" class="timeline">
+            <div class="event">
+              <span>--:--</span>
+              <p>No scan events recorded yet.</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel note-panel">
+          <div class="panel-title">
+            <div>
+              <p class="eyebrow">Measurement summary</p>
+              <h2>Backend-derived status</h2>
+            </div>
+            <span class="badge warn">Research use only</span>
+          </div>
+
+          <p id="measurementSummary" class="note">
+            No rPPG estimate has been produced yet. Start a scan to collect facial
+            RGB samples and wait for the pipeline to pass its quality gates.
+          </p>
+
+          <div class="risk-stack">
+            <div>
+              <span>Heart-rate status</span>
+              <strong id="heartRateStatus">Unavailable</strong>
+            </div>
+            <div>
+              <span>Signal-quality gate</span>
+              <strong id="signalGateStatus">Unavailable</strong>
+            </div>
+            <div>
+              <span>Clinical interpretation</span>
+              <strong>Not provided by this prototype</strong>
+            </div>
+          </div>
+        </article>
+
+        <article id="quality" class="panel sqi-panel">
+          <div class="panel-title">
+            <div>
+              <p class="eyebrow">Signal quality</p>
+              <h2>Why this reading is trusted</h2>
+            </div>
+          </div>
+
+          <div class="quality-row">
+            <span>Peak prominence</span>
+            <div class="bar"><i id="qualityPeakBar" style="width: 0%"></i></div>
+            <strong id="qualityPeak">--</strong>
+          </div>
+          <div class="quality-row">
+            <span>ROI agreement</span>
+            <div class="bar"><i id="qualityRoiBar" style="width: 0%"></i></div>
+            <strong id="qualityRoi">--</strong>
+          </div>
+          <div class="quality-row">
+            <span>Motion stability</span>
+            <div class="bar"><i id="qualityMotionBar" style="width: 0%"></i></div>
+            <strong id="qualityMotion">--</strong>
+          </div>
+          <div class="quality-row">
+            <span>Exposure stability</span>
+            <div class="bar"><i id="qualityExposureBar" style="width: 0%"></i></div>
+            <strong id="qualityExposure">--</strong>
+          </div>
+        </article>
+      </section>
+
+      <section id="safety" class="safety">
+        <div>
+          <p class="eyebrow">Hackathon-safe positioning</p>
+          <h2>Designed for explanation, not diagnosis.</h2>
+        </div>
+        <p>
+          EdgeTriage should be presented as a research-use decision-support
+          prototype. It can flag concerning patterns and summarize context, but
+          sepsis screening requires clinical evaluation and validated
+          measurements beyond webcam heart rate.
+        </p>
+      </section>
+
+      <footer class="footer">
+        <span>EdgeTriage</span>
+        <span>© 2026</span>
+      </footer>
+    </main>
+
+    <div id="scanModal" class="modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-scan></div>
+      <section
+        class="scan-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="scanTitle"
+      >
+        <div class="scan-header">
+          <div>
+            <p class="eyebrow">Live rPPG scan</p>
+            <h2 id="scanTitle">Camera feedback</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-scan aria-label="Close scan">
+            ×
+          </button>
+        </div>
+
+        <div class="scan-layout">
+          <div class="camera-card">
+            <video id="browserCamera" autoplay muted playsinline></video>
+            <canvas id="captureCanvas"></canvas>
+            <img id="scanVideo" alt="Live annotated camera stream" />
+            <div id="cameraPlaceholder" class="camera-placeholder">
+              Starting camera…
+            </div>
+          </div>
+
+          <aside class="scan-readout">
+            <div class="scan-bpm">
+              <span id="scanBpm">--</span>
+              <small>BPM</small>
+            </div>
+            <div id="scanValidity" class="scan-validity">Collecting signal…</div>
+            <div class="scan-mini-grid">
+              <div>
+                <span>SQI</span>
+                <strong id="scanSqi">--</strong>
+              </div>
+              <div>
+                <span>Face</span>
+                <strong id="scanFace">--</strong>
+              </div>
+              <div>
+                <span>Buffer</span>
+                <strong id="scanBuffer">--</strong>
+              </div>
+              <div>
+                <span>Window</span>
+                <strong id="scanWindow">--</strong>
+              </div>
+              <div>
+                <span>Input FPS</span>
+                <strong id="scanInputFps">--</strong>
+              </div>
+              <div>
+                <span>Motion</span>
+                <strong id="scanMotion">--</strong>
+              </div>
+              <div>
+                <span>Usable pixels</span>
+                <strong id="scanPixels">--</strong>
+              </div>
+              <div>
+                <span>Exposure</span>
+                <strong id="scanExposure">--</strong>
+              </div>
+            </div>
+            <p id="scanReason" class="scan-reason">
+              Keep your face centered and hold still for about 10–20 seconds.
+            </p>
+            <button id="stopScanButton" class="button secondary" type="button">Stop scan</button>
+          </aside>
+        </div>
+      </section>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
