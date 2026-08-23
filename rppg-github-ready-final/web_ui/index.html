@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Virtual rPPG Pipeline — Contactless Heart Rate Testing</title>
+    <meta
+      name="description"
+      content="A research-use dashboard for contactless rPPG testing, signal quality, and trial error tracking."
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="masthead">
+        <a class="site-title" href="#">Virtual rPPG Pipeline</a>
+        <p class="subtitle">Contactless heart-rate testing · research prototype</p>
+        <p class="status-pill">
+          <span class="pulse-dot"></span>
+          Local demo running
+        </p>
+
+        <nav class="topbar" aria-label="Primary">
+          <a href="#dashboard">dashboard</a>
+          <a href="#quality">signal quality</a>
+          <a href="#trials">trial results</a>
+          <button id="diagnosticsButton" class="text-button" type="button">scan diagnostic</button>
+          <button id="scanFaceButton" class="text-button" type="button">start session</button>
+        </nav>
+      </header>
+
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Contactless rPPG research platform</p>
+          <p class="hero-lead">
+            Virtual rPPG Pipeline estimates heart rate from webcam color changes in facial
+            ROIs. Values are shown only when the backend produces them; otherwise
+            the platform reports that the measurement is unavailable.
+          </p>
+          <p class="link-row">
+            <button class="inline-link" type="button" onclick="document.querySelector('#scanFaceButton')?.click()">start session</button>
+            <span>/</span>
+            <a href="#trials">log trial</a>
+          </p>
+        </div>
+
+        <aside class="hero-card" aria-label="Current vital snapshot">
+          <div class="card-header">
+            <span>Current estimate</span>
+            <strong id="currentValidity" class="valid muted-status">Not scanned</strong>
+          </div>
+          <div class="bpm-readout">
+            <span id="currentBpm">--</span>
+            <small>BPM</small>
+          </div>
+          <div class="metric-grid">
+            <div>
+              <span>SQI</span>
+              <strong id="currentSqi">--</strong>
+            </div>
+            <div>
+              <span>FPS</span>
+              <strong id="currentFps">--</strong>
+            </div>
+            <div>
+              <span>ROI agreement</span>
+              <strong id="currentRoiAgreement">--</strong>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section id="dashboard" class="dashboard">
+        <article class="panel video-panel">
+          <div class="panel-title">
+            <div>
+              <p class="eyebrow">Camera view</p>
+              <h2>ROI quality map</h2>
+            </div>
+            <span class="badge">MacBook Camera</span>
+          </div>
+
+          <div class="face-frame data-empty" role="img" aria-label="Live rPPG camera frame state">
+            <p id="cameraPanelStatus">
+              Press “start session” to stream the actual annotated camera feed in the popup.
+            </p>
+          </div>
+
+          <div class="roi-list">
+            <div><span><i class="swatch yellow"></i> Forehead</span> <strong id="roiForehead">--</strong></div>
+            <div><span><i class="swatch cyan"></i> Left cheek</span> <strong id="roiLeft">--</strong></div>
+            <div><span><i class="swatch magenta"></i> Right cheek</span> <strong id="roiRight">--</strong></div>
+          </div>
+        </article>
+
+        <article class="panel chart-panel">
+          <div class="panel-title">
+            <div>
+              <p class="eyebrow">Last 60 seconds</p>
+              <h2>Heart-rate trend</h2>
+            </div>
+            <span id="trendBadge" class="badge">No validated points</span>
+          </div>
+
+          <div class="chart" aria-label="Heart rate trend chart">
+            <svg viewBox="0 0 720 260" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="lineGlow" x1="0" x2="1">
+                  <stop offset="0%" stop-color="#111111" />
+                  <stop offset="100%" stop-color="#777777" />
+                </linearGradient>
+              </defs>
+              <path class="grid-line" d="M0 52 H720 M0 104 H720 M0 156 H720 M0 208 H720" />
+              <path id="trendPath" class="trend-line" d="" />
+              <path id="baselinePath" class="baseline" d="" />
+            </svg>
+          </div>
+
+          <div id="timeline" class="timeline">
+            <div class="event">
+              <span>--:--</span>
+              <p>No scan events recorded yet.</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel note-panel">
+          <div class="panel-title">
+            <div>
+              <p class="eyebrow">Measurement summary</p>
+              <h2>Backend-derived status</h2>
+            </div>
+            <span class="badge warn">Research use only</span>
+          </div>
+
+          <p id="measurementSummary" class="note">
+            No rPPG estimate has been produced yet. Start a scan to collect facial
+            RGB samples and wait for the pipeline to pass its quality gates.
+          </p>
+
+          <div class="risk-stack">
+            <div>
+              <span>Heart-rate status</span>
+              <strong id="heartRateStatus">Unavailable</strong>
+            </div>
+            <div>
+              <span>Signal-quality gate</span>
+              <strong id="signalGateStatus">Unavailable</strong>
+            </div>
+            <div>
+              <span>Clinical interpretation</span>
+              <strong>Not provided by this prototype</strong>
+            </div>
+          </div>
+        </article>
+
+        <article id="quality" class="panel sqi-panel">
+          <div class="panel-title">
+            <div>
+              <p class="eyebrow">Signal quality</p>
+              <h2>Why this reading is trusted</h2>
+            </div>
+          </div>
+
+          <div class="quality-row">
+            <span>Peak prominence</span>
+            <div class="bar"><i id="qualityPeakBar" style="width: 0%"></i></div>
+            <strong id="qualityPeak">--</strong>
+          </div>
+          <div class="quality-row">
+            <span>ROI agreement</span>
+            <div class="bar"><i id="qualityRoiBar" style="width: 0%"></i></div>
+            <strong id="qualityRoi">--</strong>
+          </div>
+          <div class="quality-row">
+            <span>Motion stability</span>
+            <div class="bar"><i id="qualityMotionBar" style="width: 0%"></i></div>
+            <strong id="qualityMotion">--</strong>
+          </div>
+          <div class="quality-row">
+            <span>Exposure stability</span>
+            <div class="bar"><i id="qualityExposureBar" style="width: 0%"></i></div>
+            <strong id="qualityExposure">--</strong>
+          </div>
+        </article>
+
+        <article id="research" class="panel research-panel">
+          <div class="panel-title">
+            <div>
+              <p class="eyebrow">Research collection</p>
+              <h2>What is required before saving a trend point</h2>
+            </div>
+            <span id="researchCollectionBadge" class="badge">Waiting</span>
+          </div>
+
+          <p id="researchCollectionSummary" class="note">
+            Start a scan to see whether the live backend estimate is ready to be
+            recorded into the research timeline.
+          </p>
+
+          <div class="collection-grid" aria-label="Research collection gates">
+            <div>
+              <span>Pulse confidence</span>
+              <strong id="collectionConfidence">--</strong>
+              <em id="collectionConfidenceGate">waiting</em>
+            </div>
+            <div>
+              <span>SQI</span>
+              <strong id="collectionSqi">--</strong>
+              <em id="collectionSqiGate">waiting</em>
+            </div>
+            <div>
+              <span>Buffer fill</span>
+              <strong id="collectionBuffer">--</strong>
+              <em id="collectionBufferGate">waiting</em>
+            </div>
+            <div>
+              <span>Motion score</span>
+              <strong id="collectionMotion">--</strong>
+              <em id="collectionMotionGate">waiting</em>
+            </div>
+          </div>
+        </article>
+
+        <article id="trials" class="panel trials-panel">
+          <div class="panel-title">
+            <div>
+              <p class="eyebrow">Trial results</p>
+              <h2>Compare rPPG against a real pulse reference</h2>
+            </div>
+            <span id="trialCountBadge" class="badge">0 saved</span>
+          </div>
+
+          <p class="note">
+            Enter a ground-truth BPM from a smartwatch, pulse oximeter, or manual
+            pulse count. The app will calculate error and save the result locally
+            for your hackathon demo.
+          </p>
+
+          <div class="trial-form" aria-label="Save rPPG trial">
+            <label>
+              <span>Ground truth BPM</span>
+              <input id="groundTruthInput" type="number" min="35" max="220" step="1" placeholder="e.g. 78" />
+            </label>
+            <label>
+              <span>Condition</span>
+              <select id="trialConditionInput">
+                <option value="Resting">Resting</option>
+                <option value="After movement">After movement</option>
+                <option value="Low light">Low light</option>
+                <option value="Bright light">Bright light</option>
+                <option value="Motion stress">Motion stress</option>
+              </select>
+            </label>
+            <label>
+              <span>Notes</span>
+              <input id="trialNotesInput" type="text" placeholder="lighting, device, posture…" />
+            </label>
+            <button id="saveTrialButton" class="button primary" type="button">Save trial</button>
+          </div>
+
+          <div class="trial-summary-grid">
+            <div>
+              <span>Current rPPG</span>
+              <strong id="trialCurrentEstimate">--</strong>
+            </div>
+            <div>
+              <span>Absolute error</span>
+              <strong id="trialCurrentError">--</strong>
+            </div>
+            <div>
+              <span>Mean absolute error</span>
+              <strong id="trialMeanError">--</strong>
+            </div>
+          </div>
+
+          <div class="trial-table-wrap">
+            <table class="trial-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>rPPG</th>
+                  <th>Truth</th>
+                  <th>Error</th>
+                  <th>SQI</th>
+                  <th>Condition</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="trialTableBody">
+                <tr>
+                  <td colspan="7">No trials saved yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <button id="clearTrialsButton" class="button secondary" type="button">Clear saved trials</button>
+        </article>
+      </section>
+
+      <footer class="footer">
+        <span>Virtual rPPG Pipeline</span>
+        <span>© 2026</span>
+      </footer>
+    </main>
+
+    <div id="scanModal" class="modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-scan></div>
+      <section
+        class="scan-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="scanTitle"
+      >
+        <div class="scan-header">
+          <div>
+            <p class="eyebrow">Live rPPG scan</p>
+            <h2 id="scanTitle">Camera feedback</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-scan aria-label="Close scan">
+            ×
+          </button>
+        </div>
+
+        <div class="scan-layout">
+          <div class="camera-card">
+            <video id="browserCamera" autoplay muted playsinline></video>
+            <canvas id="captureCanvas"></canvas>
+            <img id="scanVideo" alt="Live annotated camera stream" />
+            <div id="cameraPlaceholder" class="camera-placeholder">
+              Starting camera…
+            </div>
+          </div>
+
+          <aside class="scan-readout">
+            <div class="scan-bpm">
+              <span id="scanBpm">--</span>
+              <small>BPM</small>
+            </div>
+            <div id="scanValidity" class="scan-validity">Collecting signal…</div>
+            <div class="scan-mini-grid">
+              <div>
+                <span>SQI</span>
+                <strong id="scanSqi">--</strong>
+              </div>
+              <div>
+                <span>Face</span>
+                <strong id="scanFace">--</strong>
+              </div>
+              <div>
+                <span>Buffer</span>
+                <strong id="scanBuffer">--</strong>
+              </div>
+              <div>
+                <span>Window</span>
+                <strong id="scanWindow">--</strong>
+              </div>
+              <div>
+                <span>Input FPS</span>
+                <strong id="scanInputFps">--</strong>
+              </div>
+              <div>
+                <span>Motion</span>
+                <strong id="scanMotion">--</strong>
+              </div>
+              <div>
+                <span>Usable pixels</span>
+                <strong id="scanPixels">--</strong>
+              </div>
+              <div>
+                <span>Exposure</span>
+                <strong id="scanExposure">--</strong>
+              </div>
+            </div>
+            <p id="scanReason" class="scan-reason">
+              Keep your face centered and hold still for about 10–20 seconds.
+            </p>
+            <button id="scanDiagnosticsButton" class="button secondary" type="button">Open scan diagnostic</button>
+            <button id="stopScanButton" class="button secondary" type="button">Stop session</button>
+          </aside>
+        </div>
+      </section>
+    </div>
+
+    <div id="diagnosticsModal" class="modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-diagnostics></div>
+      <section
+        class="diagnostics-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="diagnosticsTitle"
+      >
+        <div class="scan-header">
+          <div>
+            <p class="eyebrow">Live testing panel</p>
+            <h2 id="diagnosticsTitle">Scan diagnostic</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-diagnostics aria-label="Close diagnostics">
+            ×
+          </button>
+        </div>
+
+        <p id="diagnosticsSummary" class="diagnostics-summary">
+          Start a scan to inspect candidate BPM, signal quality, and why the
+          backend is accepting or withholding the displayed result.
+        </p>
+
+        <div class="diagnostics-report">
+          <div class="panel-title">
+            <div>
+              <p class="eyebrow">Session report</p>
+              <h2>Average values from this scan</h2>
+            </div>
+            <span id="diagReportBadge" class="badge">No report yet</span>
+          </div>
+
+          <div class="diagnostics-mode">
+            <span>Display mode</span>
+            <select id="diagReportMode">
+              <option value="average">Average summary</option>
+              <option value="points">Individual data points</option>
+            </select>
+          </div>
+
+          <div id="diagAveragePanel" class="diagnostics-grid">
+            <div>
+              <span>Duration</span>
+              <strong id="diagReportDuration">--</strong>
+            </div>
+            <div>
+              <span>Frames processed</span>
+              <strong id="diagReportFrames">--</strong>
+            </div>
+            <div>
+              <span>Average candidate BPM</span>
+              <strong id="diagReportAvgCandidate">--</strong>
+            </div>
+            <div>
+              <span>Average validated BPM</span>
+              <strong id="diagReportAvgValidated">--</strong>
+            </div>
+            <div>
+              <span>Candidate range</span>
+              <strong id="diagReportRange">--</strong>
+            </div>
+            <div>
+              <span>Valid frames</span>
+              <strong id="diagReportValidFrames">--</strong>
+            </div>
+            <div>
+              <span>Average SQI</span>
+              <strong id="diagReportAvgSqi">--</strong>
+            </div>
+            <div>
+              <span>Average confidence</span>
+              <strong id="diagReportAvgConfidence">--</strong>
+            </div>
+            <div>
+              <span>Average motion</span>
+              <strong id="diagReportAvgMotion">--</strong>
+            </div>
+            <div>
+              <span>Average usable pixels</span>
+              <strong id="diagReportAvgPixels">--</strong>
+            </div>
+          </div>
+
+          <div class="diagnostics-reason">
+            <span>Dominant backend reason</span>
+            <p id="diagReportReason">Stop a scan to generate the session report.</p>
+          </div>
+
+          <div id="diagPointsPanel" class="diagnostics-points" hidden>
+            <table class="trial-table">
+              <thead>
+                <tr>
+                  <th>t</th>
+                  <th>candidate</th>
+                  <th>valid</th>
+                  <th>SQI</th>
+                  <th>confidence</th>
+                  <th>motion</th>
+                  <th>accepted</th>
+                </tr>
+              </thead>
+              <tbody id="diagPointsBody">
+                <tr>
+                  <td colspan="7">Stop a scan to list session data points.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="diagnostics-grid">
+          <div>
+            <span>Candidate BPM</span>
+            <strong id="diagCandidateBpm">--</strong>
+          </div>
+          <div>
+            <span>Validated BPM</span>
+            <strong id="diagValidatedBpm">--</strong>
+          </div>
+          <div>
+            <span>SQI</span>
+            <strong id="diagSqi">--</strong>
+          </div>
+          <div>
+            <span>Pulse confidence</span>
+            <strong id="diagConfidence">--</strong>
+          </div>
+          <div>
+            <span>Buffer fill</span>
+            <strong id="diagBuffer">--</strong>
+          </div>
+          <div>
+            <span>Effective FPS</span>
+            <strong id="diagFps">--</strong>
+          </div>
+          <div>
+            <span>Motion score</span>
+            <strong id="diagMotion">--</strong>
+          </div>
+          <div>
+            <span>Face confidence</span>
+            <strong id="diagFace">--</strong>
+          </div>
+          <div>
+            <span>Usable pixels</span>
+            <strong id="diagPixels">--</strong>
+          </div>
+          <div>
+            <span>Exposure instability</span>
+            <strong id="diagExposure">--</strong>
+          </div>
+        </div>
+
+        <div class="diagnostics-reason">
+          <span>Backend reason</span>
+          <p id="diagReason">Waiting for scan data.</p>
+        </div>
+      </section>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
