@@ -1,8 +1,8 @@
 # rPPG Heart Rate Pipeline
 
-GitHub-ready remote photoplethysmography (rPPG) pipeline for estimating heart rate from a webcam or video file using face tracking, skin-region color signals, temporal filtering, and BPM estimation.
+Remote photoplethysmography (rPPG) pipeline for estimating heart rate from a webcam or video file using face tracking, skin-region color signals, temporal filtering, and BPM estimation.
 
-This is intended for prototyping and research demos only. It is **not** a medical device and should not be used for diagnosis, treatment, or safety-critical monitoring.
+This is intended for prototyping and research demos only. It is not a medical device and should not be used for diagnosis, or treatment.
 
 ## Features
 
@@ -39,7 +39,7 @@ Then open:
 http://127.0.0.1:8000
 ```
 
-Click **scan face**. Your browser will ask for camera permission. Once accepted, the browser captures webcam frames and sends them to the local Python backend. The backend runs the rPPG pipeline and returns the live annotated camera frame plus heart-rate status.
+Click "scan face". Your browser will ask for camera permission. Once accepted, the browser captures webcam frames and sends them to the local Python backend. The backend runs the rPPG pipeline and returns the live annotated camera frame plus heart-rate status.
 
 ### What the localhost UI displays
 
